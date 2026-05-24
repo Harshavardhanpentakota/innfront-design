@@ -12,6 +12,10 @@ import Booking from "./pages/Booking.tsx";
 import MyBookings from "./pages/MyBookings.tsx";
 import Profile from "./pages/Profile.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import CancellationPolicy from "./pages/CancellationPolicy.tsx";
+import TermsOfService from "./pages/TermsOfService.tsx";
+import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
+import Contact from "./pages/Contact.tsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -39,10 +43,14 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/rooms" element={<Rooms />} />
-            <Route path="/rooms/:id" element={<RoomDetails />} />
+            <Route path="/rooms/:type" element={<RoomDetails />} />
             <Route path="/booking" element={<Booking />} />
             <Route path="/my-bookings" element={<MyBookings />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/cancellation-policy" element={<CancellationPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

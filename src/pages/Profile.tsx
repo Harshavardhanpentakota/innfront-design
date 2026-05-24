@@ -4,7 +4,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Award, BedDouble, CalendarCheck, Mail, Loader2 } from "lucide-react";
+import { CalendarCheck, Mail, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { usersApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,7 +48,7 @@ const Profile = () => {
   }
 
   const initials = user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
-  const memberYear = user.memberSince ? new Date(user.memberSince).getFullYear() : new Date().getFullYear();
+  const memberYear = user.memberSince ?? new Date().getFullYear();
 
   return (
     <PageLayout>
@@ -70,14 +70,11 @@ const Profile = () => {
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold">{user.name}</h2>
             <p className="text-sm text-muted-foreground">{user.email}</p>
-            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary-deep">
-              <Award className="h-3.5 w-3.5" /> {user.loyaltyTier} Member Â· Since {memberYear}
-            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Member since {memberYear}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <Stat icon={<CalendarCheck className="h-4 w-4" />} label="Total Stays" value={String(user.totalStays ?? 0)} />
-            <Stat icon={<BedDouble className="h-4 w-4" />} label="Tier" value={user.loyaltyTier ?? "Bronze"} />
           </div>
         </aside>
 
@@ -98,10 +95,6 @@ const Profile = () => {
             <div>
               <Label>Phone</Label>
               <Input className="mt-1.5 h-12 rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
-            </div>
-            <div>
-              <Label>Membership tier</Label>
-              <Input className="mt-1.5 h-12 rounded-xl bg-muted/60" value={user.loyaltyTier ?? "Bronze"} readOnly />
             </div>
           </div>
 

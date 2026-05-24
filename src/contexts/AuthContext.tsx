@@ -4,8 +4,8 @@ import { authApi, setTokens, clearTokens, User } from '@/lib/api';
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (payload: { name: string; email: string; password: string; phone?: string }) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
+  register: (payload: { name: string; phone: string; email?: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (payload: { name: string; email: string; password: string; phone?: string }) => {
+  const register = async (payload: { name: string; phone: string; email?: string; password: string }) => {
     setIsLoading(true);
     try {
       const res = await authApi.register(payload) as any;

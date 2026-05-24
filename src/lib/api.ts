@@ -111,13 +111,13 @@ async function tryRefreshToken(): Promise<boolean> {
 // ── Auth API ──────────────────────────────────────────────────────────────────
 
 export const authApi = {
-  register: (payload: { name: string; email: string; password: string; phone?: string }) =>
+  register: (payload: { name: string; phone: string; email?: string; password: string }) =>
     request('/auth/register', { method: 'POST', body: JSON.stringify(payload), auth: false }),
 
-  login: (email: string, password: string) =>
+  login: (identifier: string, password: string) =>
     request<{ success: boolean; data: { user: User; accessToken: string; refreshToken: string } }>(
       '/auth/login',
-      { method: 'POST', body: JSON.stringify({ email, password }), auth: false }
+      { method: 'POST', body: JSON.stringify({ identifier, password }), auth: false }
     ),
 
   logout: () => request('/auth/logout', { method: 'POST' }),
@@ -152,6 +152,11 @@ export const roomsApi = {
       `/rooms/${id}/booked-dates`,
       { auth: false }
     ),
+
+  getTypeUnavailableDates: (type: string, year: number, month: number) => {
+    const qs = new URLSearchParams({ type, year: String(year), month: String(month) }).toString();
+    return request<{ data: { dates: string[] } }>(`/rooms/type-unavailable-dates?${qs}`, { auth: false });
+  },
 
   // Admin only
   create: (payload: Partial<Room>) =>
@@ -242,7 +247,15 @@ export const adminApi = {
   getOccupancyReport: (months?: number) =>
     request(`/admin/reports/occupancy?months=${months ?? 6}`),
 };
+// ── Public Settings API ───────────────────────────────────────────────────────
 
+export const settingsApi = {
+  getPublic: () =>
+    request<{ data: { advancePaymentPercent: number; cgstPercentage: number; sgstPercentage: number } }>(
+      '/settings/public',
+      { auth: false }
+    ),
+};
 // ── Reception API ─────────────────────────────────────────────────────────────
 
 export const receptionApi = {
@@ -300,7 +313,9 @@ export interface Booking {
   _id: string;
   bookingId: string;
   user: User | string;
-  room: Room | string;
+  room: Room | null;
+  roomType: string;
+  pricePerNight: number;
   checkInDate: string;
   checkOutDate: string;
   guests: number;
@@ -315,7 +330,7 @@ export interface Booking {
 }
 
 export interface CreateBookingPayload {
-  roomId: string;
+  roomType: string;
   checkInDate: string;
   checkOutDate: string;
   guests: number;

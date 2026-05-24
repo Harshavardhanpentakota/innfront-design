@@ -19,7 +19,7 @@ export const AuthModal = ({ open, onClose, defaultMode = "login" }: AuthModalPro
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", password: "" });
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -31,9 +31,16 @@ export const AuthModal = ({ open, onClose, defaultMode = "login" }: AuthModalPro
     setError("");
     try {
       if (mode === "login") {
-        await login(form.email, form.password);
+        const identifier = form.phone.trim() || form.email.trim();
+        if (!identifier) { setError("Enter your phone number or email."); return; }
+        await login(identifier, form.password);
       } else {
-        await register({ name: form.name, email: form.email, password: form.password, phone: form.phone });
+        await register({
+          name: form.name,
+          phone: form.phone,
+          email: form.email.trim() || undefined,
+          password: form.password,
+        });
       }
       onClose();
     } catch (err) {
@@ -79,26 +86,39 @@ export const AuthModal = ({ open, onClose, defaultMode = "login" }: AuthModalPro
           )}
 
           <div>
-            <Label>Email address</Label>
+            <Label>Phone number {mode === "register" && <span className="text-destructive">*</span>}</Label>
             <Input
-              type="email"
+              type="tel"
               className="mt-1.5 h-12 rounded-xl"
-              placeholder="you@email.com"
-              value={form.email}
-              onChange={set("email")}
-              required
+              placeholder="+91 82477 86920"
+              value={form.phone}
+              onChange={set("phone")}
+              required={mode === "register"}
             />
           </div>
 
+          {mode === "login" && (
+            <div>
+              <Label className="text-muted-foreground text-xs">Or sign in with email</Label>
+              <Input
+                type="email"
+                className="mt-1.5 h-12 rounded-xl"
+                placeholder="you@email.com (optional)"
+                value={form.email}
+                onChange={set("email")}
+              />
+            </div>
+          )}
+
           {mode === "register" && (
             <div>
-              <Label>Phone (optional)</Label>
+              <Label>Email <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Input
-                type="tel"
+                type="email"
                 className="mt-1.5 h-12 rounded-xl"
-                placeholder="+91 98765 43210"
-                value={form.phone}
-                onChange={set("phone")}
+                placeholder="you@email.com"
+                value={form.email}
+                onChange={set("email")}
               />
             </div>
           )}

@@ -124,9 +124,12 @@ interface CardProps {
 }
 
 const BookingCard = ({ booking: b, cancelling, onCancel }: CardProps) => {
-  const roomName = typeof b.room === "object" ? (b.room as any).type ?? "Room" : b.room ?? "Room";
-  const roomNumber = typeof b.room === "object" ? (b.room as any).roomNumber : null;
-  const canCancel = ACTIVE.has(b.status) && onCancel;
+  // b.room can be null (type-based online booking) or an object (room assigned)
+  const roomName = b.room && typeof b.room === "object"
+    ? (b.room as any).type ?? b.roomType ?? "Room"
+    : b.roomType ?? "Room";
+  const roomNumber = b.room && typeof b.room === "object" ? (b.room as any).roomNumber : null;
+  const canCancel = ACTIVE.has(b.status) && b.status !== "checked_in" && onCancel;
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-card md:flex-row">
@@ -150,8 +153,16 @@ const BookingCard = ({ booking: b, cancelling, onCancel }: CardProps) => {
           </span>
         </div>
 
-        <div className="mt-1 text-sm font-semibold">
-          Total: ₹{b.totalAmount?.toLocaleString("en-IN")}
+        <div className="mt-1 flex flex-wrap gap-3 text-sm">
+          <span className="font-semibold">Total: ₹{b.totalAmount?.toLocaleString("en-IN")}</span>
+          {(b as any).advancePaid > 0 && (
+            <span className="text-muted-foreground">· Advance paid: ₹{(b as any).advancePaid?.toLocaleString("en-IN")}</span>
+          )}
+          {b.paymentStatus === "pending" && (b as any).advancePaid === 0 && b.status !== "cancelled" && (
+            <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+              Advance pending
+            </span>
+          )}
         </div>
 
         <div className="mt-3 flex items-center gap-3">

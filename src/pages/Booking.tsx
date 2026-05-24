@@ -8,33 +8,101 @@ import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Calendar as CalIcon, ArrowRight, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { Check, Calendar as CalIcon, ArrowRight, ArrowLeft, CheckCircle2, Clock, Loader2, CreditCard, IndianRupee } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { roomsApi, bookingsApi, ApiError } from "@/lib/api";
+import { roomsApi, bookingsApi, paymentsApi, settingsApi, ApiError } from "@/lib/api";
 import { roomImages } from "@/lib/rooms";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 
-const typeToImage = (type: string): string => {
-  if (type === "Suite") return "suite";
-  if (type === "Deluxe AC") return "deluxe";
-  return "standard";
+declare global {
+  interface Window {
+    Razorpay: new (options: object) => { open: () => void };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+const TYPE_IMAGES: Record<string, string> = {
+  "Suite": roomImages["suite"],
+  "Deluxe AC": roomImages["deluxe"],
+  "Deluxe Non AC": roomImages["standard"],
 };
 
 const steps = ["Dates & Guests", "Your Details", "Summary", "Confirmation"];
 
+// ─── DateField helper ─────────────────────────────────────────────
+function DateField({ label, value, onChange }: { label: string; value: Date | undefined; onChange: (d: Date | undefined) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-sm font-medium">{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className={cn(
+            "h-12 justify-start rounded-xl text-left font-normal",
+            !value && "text-muted-foreground"
+          )}>
+            <CalIcon className="mr-2 h-4 w-4 shrink-0" />
+            {value ? format(value, "PPP") : "Pick a date"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={value}
+            onSelect={onChange}
+            disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
 const Booking = () => {
   const [searchParams] = useSearchParams();
-  const roomId = searchParams.get("roomId");
+  const roomType = searchParams.get("roomType") ?? "";
   const checkInParam = searchParams.get("checkIn");
   const checkOutParam = searchParams.get("checkOut");
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const sessionKey = `booking-step-${roomType}`;
+
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => {
+    const saved = sessionStorage.getItem(sessionKey);
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  const setStepPersist = (s: number | ((prev: number) => number)) => {
+    setStep((prev) => {
+      const next = typeof s === 'function' ? s(prev) : s;
+      sessionStorage.setItem(sessionKey, String(next));
+      return next;
+    });
+  };
   const [checkIn, setCheckIn] = useState<Date | undefined>(
     checkInParam ? new Date(checkInParam + "T12:00:00") : new Date()
   );
@@ -48,8 +116,9 @@ const Booking = () => {
   const [specialRequests, setSpecialRequests] = useState("");
   const [createdBooking, setCreatedBooking] = useState<any>(null);
   const [apiError, setApiError] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "loading" | "success" | "failed">("idle");
+  const [advanceAmount, setAdvanceAmount] = useState<number | null>(null);
 
-  // Pre-fill from logged-in user
   useEffect(() => {
     if (user) {
       setName(user.name ?? "");
@@ -58,25 +127,39 @@ const Booking = () => {
     }
   }, [user]);
 
-  const { data: roomData, isLoading: roomLoading } = useQuery({
-    queryKey: ["room", roomId],
-    queryFn: () => roomsApi.getById(roomId!),
-    enabled: !!roomId,
+  // Fetch representative room to get price for this type
+  const { data: roomTypeData, isLoading: priceLoading } = useQuery({
+    queryKey: ["rooms-type-price", roomType],
+    queryFn: () => roomsApi.getAll({ type: roomType, limit: "1" }),
+    enabled: !!roomType,
+    staleTime: 1000 * 60 * 10,
   });
+  const pricePerNight = roomTypeData?.data?.[0]?.price ?? 0;
 
-  const room = roomData?.data;
+  // Fetch advance payment % from public settings
+  const { data: settingsData } = useQuery({
+    queryKey: ["public-settings"],
+    queryFn: () => settingsApi.getPublic(),
+    staleTime: 1000 * 60 * 30,
+  });
+  const advancePercent = (settingsData as any)?.data?.advancePaymentPercent ?? 10;
 
   const nights = checkIn && checkOut
     ? Math.max(1, differenceInCalendarDays(checkOut, checkIn))
     : 1;
-  const subtotal = room ? room.price * nights : 0;
+  const subtotal = pricePerNight * nights;
   const gst = Math.round(subtotal * 0.12);
   const total = subtotal + gst;
+
+  // Advance amount shown to user — from actual booking total once created, else from local calc
+  const displayAdvanceAmount = Math.round(
+    (createdBooking?.totalAmount ?? total) * advancePercent / 100
+  );
 
   const bookingMutation = useMutation({
     mutationFn: () =>
       bookingsApi.create({
-        roomId: roomId!,
+        roomType: roomType,
         checkInDate: checkIn!.toISOString(),
         checkOutDate: checkOut!.toISOString(),
         guests: parseInt(guests, 10),
@@ -84,7 +167,7 @@ const Booking = () => {
       }),
     onSuccess: (res: any) => {
       setCreatedBooking(res.data);
-      setStep(3);
+      setStepPersist(3);
       setApiError("");
     },
     onError: (err) => {
@@ -102,20 +185,70 @@ const Booking = () => {
       bookingMutation.mutate();
       return;
     }
-    setStep((s) => Math.min(s + 1, steps.length - 1));
+    setStepPersist((s) => Math.min(s + 1, steps.length - 1));
   };
-  const back = () => setStep((s) => Math.max(s - 1, 0));
+  const back = () => setStepPersist((s) => Math.max(s - 1, 0));
 
-  if (!roomId) {
+  const handleRazorpayPayment = async () => {
+    if (!createdBooking) return;
+    setPaymentStatus("loading");
+    const loaded = await loadRazorpayScript();
+    if (!loaded) {
+      setPaymentStatus("failed");
+      return;
+    }
+    try {
+      const orderRes = await paymentsApi.createRazorpayOrder(createdBooking._id) as any;
+      const { orderId, amount, currency, keyId, advanceAmount: adv } = orderRes.data;
+      if (adv) setAdvanceAmount(adv);
+
+      const rzp = new window.Razorpay({
+        key: keyId,
+        amount,
+        currency,
+        name: "Hotel Abhitej Inn",
+        description: `Advance payment for ${createdBooking.roomType ?? roomType}`,
+        order_id: orderId,
+        prefill: { name, email, contact: phone },
+        theme: { color: "#0ea5e9" },
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            await paymentsApi.verifyRazorpayPayment({
+              bookingId: createdBooking._id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            setPaymentStatus("success");
+            sessionStorage.removeItem(sessionKey);
+          } catch {
+            setPaymentStatus("failed");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            if (paymentStatus !== "success") setPaymentStatus("idle");
+          },
+        },
+      });
+      rzp.open();
+    } catch {
+      setPaymentStatus("failed");
+    }
+  };
+
+  if (!roomType) {
     return (
       <PageLayout>
         <div className="container-page py-20 text-center text-muted-foreground">
-          No room selected.{" "}
-          <Link to="/rooms" className="text-primary underline">Browse rooms</Link>
+          No room type selected.{" "}
+          <Link to="/rooms" className="text-primary underline">Browse room types</Link>
         </div>
       </PageLayout>
     );
   }
+
+  const roomImage = TYPE_IMAGES[roomType] ?? roomImages["standard"];
 
   return (
     <PageLayout>
@@ -160,6 +293,7 @@ const Booking = () => {
 
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
+
             {step === 0 && (
               <div className="space-y-6 animate-fade-up">
                 <h2 className="font-display text-2xl font-semibold">When are you staying?</h2>
@@ -216,12 +350,12 @@ const Booking = () => {
               <div className="space-y-5 animate-fade-up">
                 <h2 className="font-display text-2xl font-semibold">Review your booking</h2>
                 <div className="rounded-xl border border-border p-5">
-                  <SummaryRow label="Guest" value={name || "—"} />
-                  <SummaryRow label="Email" value={email || "—"} />
-                  <SummaryRow label="Phone" value={phone || "—"} />
-                  <SummaryRow label="Room" value={room ? `${room.type} (Room ${room.roomNumber})` : "—"} />
-                  <SummaryRow label="Check-in" value={checkIn ? format(checkIn, "PPP") : "—"} />
-                  <SummaryRow label="Check-out" value={checkOut ? format(checkOut, "PPP") : "—"} />
+                  <SummaryRow label="Guest" value={name || "\u2014"} />
+                  <SummaryRow label="Email" value={email || "\u2014"} />
+                  <SummaryRow label="Phone" value={phone || "\u2014"} />
+                  <SummaryRow label="Room Type" value={roomType} />
+                  <SummaryRow label="Check-in" value={checkIn ? format(checkIn, "PPP") : "\u2014"} />
+                  <SummaryRow label="Check-out" value={checkOut ? format(checkOut, "PPP") : "\u2014"} />
                   <SummaryRow label="Nights" value={String(nights)} />
                   <SummaryRow label="Guests" value={`${guests} guest${parseInt(guests) > 1 ? "s" : ""}`} />
                   <SummaryRow label="Subtotal" value={`₹${subtotal.toLocaleString("en-IN")}`} />
@@ -230,6 +364,13 @@ const Booking = () => {
                     <span>Total</span>
                     <span>₹{total.toLocaleString("en-IN")}</span>
                   </div>
+                  <div className="mt-1.5 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Advance due now ({advancePercent}%)</span>
+                    <span className="font-semibold text-primary">₹{Math.round(total * advancePercent / 100).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary-deep">
+                  A specific room will be assigned by our team upon check-in.
                 </div>
                 {apiError && (
                   <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{apiError}</p>
@@ -239,20 +380,39 @@ const Booking = () => {
 
             {step === 3 && createdBooking && (
               <div className="space-y-5 text-center animate-scale-in">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-soft">
-                  <CheckCircle2 className="h-10 w-10 text-primary-deep" strokeWidth={1.5} />
-                </div>
-                <h2 className="font-display text-3xl font-semibold">Booking Confirmed!</h2>
-                <p className="mx-auto max-w-md text-muted-foreground">
-                  Your stay at Hotel Abhitej Inn is confirmed. A confirmation has been sent to <strong>{email}</strong>.
-                </p>
+                {paymentStatus === "success" ? (
+                  /* ── Payment success + booking confirmed ── */
+                  <>
+                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+                      <CheckCircle2 className="h-10 w-10 text-green-600" strokeWidth={1.5} />
+                    </div>
+                    <h2 className="font-display text-3xl font-semibold">Booking Confirmed!</h2>
+                    <p className="mx-auto max-w-md text-muted-foreground">
+                      Your advance payment has been received and your booking is now confirmed. See you at Hotel Abhitej Inn!
+                    </p>
+                  </>
+                ) : (
+                  /* ── Payment pending — reservation created, not yet confirmed ── */
+                  <>
+                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-100">
+                      <Clock className="h-10 w-10 text-amber-600" strokeWidth={1.5} />
+                    </div>
+                    <h2 className="font-display text-3xl font-semibold">Reservation Pending</h2>
+                    <p className="mx-auto max-w-md text-muted-foreground">
+                      Your reservation is created. <strong>Pay the advance now</strong> to confirm your booking.
+                    </p>
+                  </>
+                )}
+
                 <div className="mx-auto max-w-md rounded-xl bg-muted/60 p-5 text-left">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Booking ID</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {paymentStatus === "success" ? "Booking ID" : "Reservation ID (pending)"}
+                  </div>
                   <div className="mt-1 font-display text-xl font-semibold">{createdBooking.bookingId}</div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <div className="text-muted-foreground">Room</div>
-                      <div className="font-medium">{createdBooking.room?.type ?? room?.type}</div>
+                      <div className="text-muted-foreground">Room Type</div>
+                      <div className="font-medium">{createdBooking.roomType ?? roomType}</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">Total</div>
@@ -267,10 +427,44 @@ const Booking = () => {
                       <div className="font-medium">{format(new Date(createdBooking.checkOutDate), "dd MMM yyyy")}</div>
                     </div>
                   </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Room number will be assigned at check-in by our team.
+                  </p>
                 </div>
-                <Button asChild className="rounded-full bg-gradient-sky text-primary-foreground">
-                  <Link to="/my-bookings">View My Bookings <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
-                </Button>
+
+                {paymentStatus !== "success" && (
+                  <div className="mx-auto max-w-md rounded-xl border border-primary/20 bg-primary/5 p-5 text-left space-y-3">
+                    <div className="flex items-center gap-2">
+                      <IndianRupee className="h-5 w-5 text-primary" />
+                      <span className="font-semibold text-sm">Pay Advance to Confirm</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Pay the advance online via Razorpay to confirm your booking immediately.
+                    </p>
+                    {paymentStatus === "failed" && (
+                      <p className="text-xs text-destructive">Payment failed or was cancelled. Please try again.</p>
+                    )}
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleRazorpayPayment}
+                        disabled={paymentStatus === "loading"}
+                        className="w-full rounded-full bg-gradient-sky text-primary-foreground shadow-glow"
+                      >
+                        {paymentStatus === "loading" ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
+                        ) : (
+                          <><CreditCard className="mr-2 h-4 w-4" /> Pay ₹{displayAdvanceAmount.toLocaleString("en-IN")} Advance ({advancePercent}%)</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {paymentStatus === "success" && (
+                  <Button asChild className="rounded-full bg-gradient-sky text-primary-foreground">
+                    <Link to="/my-bookings">View My Bookings <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+                  </Button>
+                )}
               </div>
             )}
 
@@ -300,50 +494,26 @@ const Booking = () => {
             )}
           </div>
 
-          {/* Summary Sidebar */}
-          <aside className="lg:sticky lg:top-24 lg:self-start">
+          {/* Room type summary sidebar */}
+          <aside className="space-y-4">
             <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-              {roomLoading ? (
-                <div>
-                  <Skeleton className="aspect-[4/3] w-full" />
-                  <div className="p-5 space-y-2">
-                    <Skeleton className="h-4 w-1/3" />
-                    <Skeleton className="h-5 w-2/3" />
-                    <Skeleton className="h-24 w-full mt-3" />
-                  </div>
-                </div>
-              ) : room ? (
-                <>
-                  <img
-                    src={room.images?.[0] || roomImages[typeToImage(room.type)]}
-                    alt={room.type}
-                    className="aspect-[4/3] w-full object-cover"
-                  />
-                  <div className="p-5">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Your selection</div>
-                    <h3 className="mt-1 font-display text-lg font-semibold">{room.type}</h3>
-                    <p className="text-xs text-muted-foreground">Room {room.roomNumber} · Floor {room.floor}</p>
-                    <div className="mt-4 space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Rate</span>
-                        <span>₹{room.price.toLocaleString("en-IN")}/night</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Nights</span>
-                        <span>{nights}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">GST (12%)</span>
-                        <span>₹{gst.toLocaleString("en-IN")}</span>
-                      </div>
-                      <div className="mt-3 flex justify-between border-t border-border pt-3 font-display text-lg font-semibold">
-                        <span>Total</span>
-                        <span>₹{total.toLocaleString("en-IN")}</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : null}
+              <div className="aspect-[4/3] overflow-hidden">
+                <img src={roomImage} alt={roomType} className="h-full w-full object-cover" />
+              </div>
+              <div className="p-5">
+                <h3 className="font-display text-lg font-semibold">{roomType}</h3>
+                {priceLoading ? (
+                  <Skeleton className="mt-2 h-6 w-32" />
+                ) : pricePerNight > 0 ? (
+                  <p className="mt-1 text-2xl font-display font-semibold">
+                    ₹{pricePerNight.toLocaleString("en-IN")}
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">/ night</span>
+                  </p>
+                ) : null}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Room number assigned by our team at check-in.
+                </p>
+              </div>
             </div>
           </aside>
         </div>
@@ -352,29 +522,4 @@ const Booking = () => {
   );
 };
 
-const DateField = ({ label, value, onChange }: { label: string; value?: Date; onChange: (d?: Date) => void }) => (
-  <div>
-    <Label className="text-sm font-medium">{label}</Label>
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="mt-1.5 h-12 w-full justify-start rounded-xl text-left font-normal">
-          <CalIcon className="mr-2 h-4 w-4 text-primary" />
-          {value ? format(value, "PPP") : <span className="text-muted-foreground">Pick a date</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={value} onSelect={onChange} initialFocus className="p-3 pointer-events-auto" />
-      </PopoverContent>
-    </Popover>
-  </div>
-);
-
-const SummaryRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-center justify-between border-b border-border py-2.5 last:border-0">
-    <span className="text-sm text-muted-foreground">{label}</span>
-    <span className="text-sm font-medium">{value}</span>
-  </div>
-);
-
 export default Booking;
-

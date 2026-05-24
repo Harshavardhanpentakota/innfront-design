@@ -1,50 +1,124 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { RoomCard } from "@/components/rooms/RoomCard";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { roomsApi } from "@/lib/api";
 import { ROOM_TYPES } from "@/lib/constants";
+import { roomImages } from "@/lib/rooms";
+import { Users, Maximize2, Wind, ArrowRight } from "lucide-react";
 
-const types = ["All", ...ROOM_TYPES];
+const TYPE_META: Record<string, {
+  image: string;
+  description: string;
+  amenities: string[];
+  capacity: number;
+  size: string;
+}> = {
+  "Deluxe Non AC": {
+    image: roomImages["standard"],
+    description: "Comfortable and well-appointed room with all essential amenities. Perfect for guests who value comfort without air conditioning.",
+    amenities: ["WiFi", "TV", "Hot Water", "Room Service"],
+    capacity: 2,
+    size: "250 sq ft",
+  },
+  "Deluxe AC": {
+    image: roomImages["deluxe"],
+    description: "Spacious air-conditioned room with modern furnishings. Enjoy a cool, relaxing stay with premium amenities and stylish interiors.",
+    amenities: ["WiFi", "AC", "TV", "Hot Water", "Room Service", "Mini Bar"],
+    capacity: 3,
+    size: "300 sq ft",
+  },
+  Suite: {
+    image: roomImages["suite"],
+    description: "Our finest accommodation with a separate living area, luxury amenities, and stunning views. An unparalleled experience of elegance.",
+    amenities: ["WiFi", "AC", "TV", "Hot Water", "Room Service", "Mini Bar", "Bathtub", "Lounge"],
+    capacity: 4,
+    size: "500 sq ft",
+  },
+};
+
+function RoomTypeCard({ roomType, checkIn, checkOut }: { roomType: string; checkIn: string; checkOut: string }) {
+  const meta = TYPE_META[roomType];
+  const { data, isLoading } = useQuery({
+    queryKey: ["rooms-type-price", roomType],
+    queryFn: () => roomsApi.getAll({ type: roomType, limit: "1" }),
+    staleTime: 1000 * 60 * 10,
+  });
+  const price = data?.data?.[0]?.price;
+  const bookingParams = new URLSearchParams({ roomType });
+  if (checkIn) bookingParams.set("checkIn", checkIn);
+  if (checkOut) bookingParams.set("checkOut", checkOut);
+
+  return (
+    <article className="group hover-lift overflow-hidden rounded-2xl border border-border bg-card shadow-card flex flex-col">
+      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        <img
+          src={meta.image}
+          alt={roomType}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+        <div className="absolute left-4 top-4">
+          <Badge className="rounded-full border-0 bg-background/95 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">
+            {roomType}
+          </Badge>
+        </div>
+        {(roomType === "Deluxe AC" || roomType === "Suite") && (
+          <div className="absolute right-4 top-4 flex items-center gap-1 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-semibold backdrop-blur text-primary">
+            <Wind className="h-3 w-3" /> AC
+          </div>
+        )}
+      </div>
+      <div className="p-5 flex flex-col flex-1">
+        <div>
+          <h3 className="font-display text-xl font-semibold leading-tight text-foreground">{roomType}</h3>
+          <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><Maximize2 className="h-3 w-3" /> {meta.size}</span>
+            <span className="flex items-center gap-1"><Users className="h-3 w-3" /> Up to {meta.capacity} guests</span>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{meta.description}</p>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {meta.amenities.slice(0, 4).map((f) => (
+            <span key={f} className="rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-medium text-primary-deep">{f}</span>
+          ))}
+          {meta.amenities.length > 4 && (
+            <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">+{meta.amenities.length - 4} more</span>
+          )}
+        </div>
+        <div className="mt-5 flex items-end justify-between border-t border-border pt-4">
+          <div>
+            {isLoading ? (
+              <Skeleton className="h-7 w-28" />
+            ) : price ? (
+              <>
+                <div className="font-display text-2xl font-semibold text-foreground">
+                  ₹{price.toLocaleString("en-IN")}
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">/ night</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">+ 12% GST</p>
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">Price on request</span>
+            )}
+          </div>
+          <Button asChild size="sm" className="rounded-full bg-foreground text-background hover:bg-foreground/90">
+            <Link to={`/rooms/${encodeURIComponent(roomType)}`}>
+              View Details <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 const Rooms = () => {
-  const [type, setType] = useState("All");
-  const [price, setPrice] = useState<[number, number]>([1000, 6000]);
-  const [availableOnly, setAvailableOnly] = useState(false);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
-
-  const queryParams: Record<string, string> = {
-    minPrice: String(price[0]),
-    maxPrice: String(price[1]),
-    limit: "50",
-  };
-  if (type !== "All") queryParams.type = type;
-  if (availableOnly && (!checkIn || !checkOut)) queryParams.status = "available";
-
-  const useDateSearch = !!(checkIn && checkOut);
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["rooms", queryParams, checkIn, checkOut],
-    queryFn: () => {
-      if (useDateSearch) {
-        const availParams: Record<string, string> = {
-          minPrice: String(price[0]),
-          maxPrice: String(price[1]),
-        };
-        if (type !== "All") availParams.type = type;
-        return roomsApi.getAvailable(checkIn, checkOut, availParams);
-      }
-      return roomsApi.getAll(queryParams);
-    },
-  });
-
-  const rooms = data?.data ?? [];
 
   return (
     <PageLayout>
@@ -52,152 +126,47 @@ const Rooms = () => {
         <div className="container-page">
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Our Rooms</span>
           <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight md:text-5xl">
-            Find your perfect retreat
+            Choose your room type
           </h1>
           <p className="mt-3 max-w-xl text-muted-foreground">
-            Browse our curated collection of rooms and suites — every space crafted for comfort and calm.
+            Select from our curated room categories. Our team will assign you the perfect room upon arrival.
           </p>
         </div>
       </section>
 
       <section className="container-page py-10 md:py-14">
-        <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-          {/* Filters */}
-          <aside className="space-y-6">
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <h3 className="font-display text-lg font-semibold">Filters</h3>
-
-              {/* Date availability filter */}
-              <div className="mt-5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Check-in
-                </Label>
-                <input
-                  type="date"
-                  value={checkIn}
-                  min={new Date().toISOString().split("T")[0]}
-                  onChange={(e) => {
-                    setCheckIn(e.target.value);
-                    if (checkOut && e.target.value >= checkOut) setCheckOut("");
-                  }}
-                  className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div className="mt-4">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Check-out
-                </Label>
-                <input
-                  type="date"
-                  value={checkOut}
-                  min={checkIn || new Date().toISOString().split("T")[0]}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              {checkIn && checkOut && (
-                <p className="mt-2 text-xs font-medium text-primary">
-                  Showing available rooms: {checkIn} → {checkOut}
-                </p>
-              )}
-
-              <div className="mt-5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Price range
-                </Label>
-                <div className="mt-3">
-                  <Slider
-                    value={price}
-                    min={1000}
-                    max={6000}
-                    step={100}
-                    onValueChange={(v) => setPrice(v as [number, number])}
-                  />
-                  <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                    <span>₹{price[0].toLocaleString("en-IN")}</span>
-                    <span>₹{price[1].toLocaleString("en-IN")}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Room type
-                </Label>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {types.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setType(t)}
-                      className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                        type === t
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground hover:bg-primary-soft hover:text-primary-deep"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6 flex items-center justify-between rounded-xl bg-muted/60 p-3">
-                <Label htmlFor="avail" className="text-sm font-medium">Available only</Label>
-                <Switch id="avail" checked={availableOnly} onCheckedChange={setAvailableOnly} />
-              </div>
-
-              <Button
-                variant="ghost"
-                className="mt-4 w-full rounded-full"
-                onClick={() => { setType("All"); setPrice([1000, 6000]); setAvailableOnly(false); setCheckIn(""); setCheckOut(""); }}
-              >
-                Reset filters
-              </Button>
-            </div>
-          </aside>
-
-          {/* Results */}
-          <div>
-            <div className="mb-5 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {!isLoading && (
-                  <><span className="font-medium text-foreground">{rooms.length}</span> rooms found</>
-                )}
-              </p>
-            </div>
-
-            {isError && (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center text-muted-foreground">
-                Failed to load rooms. Is the backend running?
-              </div>
-            )}
-
-            {isLoading ? (
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-                    <Skeleton className="aspect-[4/3] w-full" />
-                    <div className="p-5 space-y-3">
-                      <Skeleton className="h-5 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                      <Skeleton className="h-8 w-full" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                  {rooms.map((r) => <RoomCard key={r._id} room={r} />)}
-                </div>
-                {rooms.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground">
-                    No rooms match your filters.
-                  </div>
-                )}
-              </>
-            )}
+        <div className="mb-8 flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-card p-5 shadow-card">
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Check-in</label>
+            <input
+              type="date"
+              value={checkIn}
+              min={new Date().toISOString().split("T")[0]}
+              onChange={(e) => { setCheckIn(e.target.value); if (checkOut && e.target.value >= checkOut) setCheckOut(""); }}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Check-out</label>
+            <input
+              type="date"
+              value={checkOut}
+              min={checkIn || new Date().toISOString().split("T")[0]}
+              onChange={(e) => setCheckOut(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          {checkIn && checkOut && (
+            <p className="text-xs text-primary font-medium self-end pb-2">
+              Dates selected. Click View Details on your preferred room type.
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+          {ROOM_TYPES.map((type) => (
+            <RoomTypeCard key={type} roomType={type} checkIn={checkIn} checkOut={checkOut} />
+          ))}
         </div>
       </section>
     </PageLayout>
@@ -205,4 +174,3 @@ const Rooms = () => {
 };
 
 export default Rooms;
-
