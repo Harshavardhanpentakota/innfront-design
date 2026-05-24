@@ -89,11 +89,25 @@ const Booking = () => {
   const { user } = useAuth();
 
   const sessionKey = `booking-step-${roomType}`;
+  const dataKey   = `booking-data-${roomType}`;
+
+  // Restore persisted form data from a previous session (before reload)
+  const persisted = (() => {
+    try { return JSON.parse(sessionStorage.getItem(dataKey) ?? "{}"); } catch { return {}; }
+  })();
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [step, setStep] = useState(() => {
     const saved = sessionStorage.getItem(sessionKey);
-    return saved ? parseInt(saved, 10) : 0;
+    if (!saved) return 0;
+    const s = parseInt(saved, 10);
+    // If step > 0 but essential date data is unavailable, restart from step 0
+    const hasCheckOut = checkOutParam || persisted.checkOut;
+    if (s > 0 && !hasCheckOut) {
+      sessionStorage.removeItem(sessionKey);
+      return 0;
+    }
+    return s;
   });
 
   const setStepPersist = (s: number | ((prev: number) => number)) => {
@@ -103,21 +117,38 @@ const Booking = () => {
       return next;
     });
   };
-  const [checkIn, setCheckIn] = useState<Date | undefined>(
-    checkInParam ? new Date(checkInParam + "T12:00:00") : new Date()
-  );
-  const [checkOut, setCheckOut] = useState<Date | undefined>(
-    checkOutParam ? new Date(checkOutParam + "T12:00:00") : undefined
-  );
-  const [guests, setGuests] = useState("2");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+
+  const [checkIn, setCheckIn] = useState<Date | undefined>(() => {
+    if (checkInParam) return new Date(checkInParam + "T12:00:00");
+    if (persisted.checkIn) return new Date(persisted.checkIn);
+    return new Date();
+  });
+  const [checkOut, setCheckOut] = useState<Date | undefined>(() => {
+    if (checkOutParam) return new Date(checkOutParam + "T12:00:00");
+    if (persisted.checkOut) return new Date(persisted.checkOut);
+    return undefined;
+  });
+  const [guests, setGuests] = useState<string>(persisted.guests ?? "2");
+  const [name, setName] = useState(persisted.name ?? "");
+  const [email, setEmail] = useState(persisted.email ?? "");
+  const [phone, setPhone] = useState(persisted.phone ?? "");
   const [specialRequests, setSpecialRequests] = useState("");
   const [createdBooking, setCreatedBooking] = useState<any>(null);
   const [apiError, setApiError] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "loading" | "success" | "failed">("idle");
   const [advanceAmount, setAdvanceAmount] = useState<number | null>(null);
+
+  // Persist form data so a page reload within the same booking session can recover
+  useEffect(() => {
+    if (step >= 3) return; // don't keep stale data after booking is created
+    const data: Record<string, string> = { guests };
+    if (checkIn) data.checkIn = checkIn.toISOString();
+    if (checkOut) data.checkOut = checkOut.toISOString();
+    if (name) data.name = name;
+    if (email) data.email = email;
+    if (phone) data.phone = phone;
+    sessionStorage.setItem(dataKey, JSON.stringify(data));
+  }, [checkIn, checkOut, guests, name, email, phone, step, dataKey]);
 
   useEffect(() => {
     if (user) {
@@ -168,6 +199,7 @@ const Booking = () => {
     onSuccess: (res: any) => {
       setCreatedBooking(res.data);
       setStepPersist(3);
+      sessionStorage.removeItem(dataKey); // form data no longer needed
       setApiError("");
     },
     onError: (err) => {
@@ -221,6 +253,7 @@ const Booking = () => {
             });
             setPaymentStatus("success");
             sessionStorage.removeItem(sessionKey);
+            sessionStorage.removeItem(dataKey);
           } catch {
             setPaymentStatus("failed");
           }
