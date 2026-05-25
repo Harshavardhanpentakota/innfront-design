@@ -2,11 +2,11 @@ import { useState } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, ArrowRight, MapPin, Loader2 } from "lucide-react";
+import { CalendarDays, ArrowRight, MapPin, Loader2, Download, Receipt } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi, bookingsApi, type Booking } from "@/lib/api";
+import { usersApi, bookingsApi, invoicesApi, type Booking } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -130,6 +130,28 @@ const BookingCard = ({ booking: b, cancelling, onCancel }: CardProps) => {
     : b.roomType ?? "Room";
   const roomNumber = b.room && typeof b.room === "object" ? (b.room as any).roomNumber : null;
   const canCancel = ACTIVE.has(b.status) && b.status !== "checked_in" && onCancel;
+  const isCheckedOut = b.status === "checked_out" || b.status === "completed";
+  // _id is the MongoDB id of the booking document
+  const mongoBookingId = (b as any)._id as string | undefined;
+
+  const handleDownloadInvoice = async () => {
+    if (!mongoBookingId) return;
+    const token = localStorage.getItem("accessToken") ?? "";
+    const url = invoicesApi.downloadPdfUrl(mongoBookingId);
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = `invoice-${b.bookingId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(objUrl);
+    } catch {
+      // silent — user can retry
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-card md:flex-row">
@@ -165,7 +187,7 @@ const BookingCard = ({ booking: b, cancelling, onCancel }: CardProps) => {
           )}
         </div>
 
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           {canCancel && (
             <Button
               size="sm"
@@ -178,9 +200,16 @@ const BookingCard = ({ booking: b, cancelling, onCancel }: CardProps) => {
               {cancelling ? "Cancelling..." : "Cancel Booking"}
             </Button>
           )}
-          <Button asChild size="sm" variant="ghost" className="rounded-full">
-            <Link to="/rooms">Browse Rooms <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
-          </Button>
+          {isCheckedOut && mongoBookingId && (
+            <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={handleDownloadInvoice}>
+              <Download className="h-3.5 w-3.5" /> Download Invoice
+            </Button>
+          )}
+          {!isCheckedOut && (
+            <Button asChild size="sm" variant="ghost" className="rounded-full">
+              <Link to="/rooms">Browse Rooms <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -210,12 +210,35 @@ export const paymentsApi = {
 
 // ── Invoices API ──────────────────────────────────────────────────────────────
 
-export const invoicesApi = {
-  getByBooking: (bookingId: string) =>
-    request(`/invoices/${bookingId}`),
+export interface InvoiceDetail {
+  _id: string;
+  invoiceNumber: string;
+  booking: { _id: string; bookingId: string; checkInDate: string; checkOutDate: string; nights: number } | null;
+  user: { name: string; email: string; phone?: string } | null;
+  room: { roomNumber: string; type: string } | null;
+  roomSubtotal: number;
+  extraCharges: { description: string; amount: number; category: string }[];
+  extraChargesTotal: number;
+  subtotal: number;
+  cgstPercentage: number;
+  sgstPercentage: number;
+  cgst: number;
+  sgst: number;
+  tax: number;
+  totalAmount: number;
+  advancePaid: number;
+  advancePaymentMethod: string;
+  balanceDue: number;
+  balancePaymentMethod: string;
+  generatedAt: string;
+}
 
-  downloadPdf: (bookingId: string) =>
-    `${BASE_URL}/invoices/${bookingId}/pdf`,
+export const invoicesApi = {
+  getByBooking: (mongoBookingId: string) =>
+    request<{ data: InvoiceDetail }>(`/invoices/${mongoBookingId}`),
+
+  downloadPdfUrl: (mongoBookingId: string) =>
+    `${BASE_URL}/invoices/${mongoBookingId}/pdf`,
 };
 
 // ── Users API ─────────────────────────────────────────────────────────────────

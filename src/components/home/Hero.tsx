@@ -9,7 +9,7 @@ export const Hero = () => (
     <div className="relative h-[640px] w-full md:h-[720px]">
       <img
         src={heroImg}
-        alt="Hotel Abhijeeth INN exterior at golden hour"
+        alt="Hotel Abhitej INN exterior at golden hour"
         width={1920}
         height={1080}
         className="absolute inset-0 h-full w-full object-cover"
@@ -26,7 +26,7 @@ export const Hero = () => (
             Stay where every<br />moment feels rare.
           </h1>
           <p className="mt-5 max-w-lg text-base text-white/85 md:text-lg">
-            Hotel Abhijeeth INN is a calm, contemporary retreat — designed for travelers who notice the details.
+            Hotel Abhitej INN is a calm, contemporary retreat — designed for travelers who notice the details.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Button asChild size="lg" className="rounded-full bg-white px-7 text-foreground hover:bg-white/95">
