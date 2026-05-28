@@ -2,13 +2,13 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchCard } from "@/components/booking/SearchCard";
-import heroImg from "@/assets/hero.jpg";
+
 
 export const Hero = () => (
   <section className="relative overflow-hidden">
     <div className="relative h-[640px] w-full md:h-[720px]">
       <img
-        src={heroImg}
+        src="/room-images/banner-main.jpeg"
         alt="Hotel Abhitej INN exterior at golden hour"
         width={1920}
         height={1080}
