@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { roomsApi } from "@/lib/api";
-import { roomImages } from "@/lib/rooms";
+import { roomImages } from "@/lib/roomImagesPublic";
 
 const ROOM_TYPE_META: Record<string, { image: string; size: string; capacity: number; ac: boolean }> = {
-  "Deluxe Non AC": { image: roomImages["standard"], size: "250 sq ft", capacity: 2, ac: false },
-  "Deluxe AC":     { image: roomImages["deluxe"],   size: "300 sq ft", capacity: 3, ac: true },
-  "Suite":         { image: roomImages["suite"],     size: "500 sq ft", capacity: 4, ac: true },
+  "Deluxe Non AC": { image: roomImages["Deluxe Non AC"][0], size: "250 sq ft", capacity: 2, ac: false },
+  "Deluxe AC":     { image: roomImages["Deluxe AC"][0],     size: "300 sq ft", capacity: 3, ac: true },
+  "Suite":         { image: roomImages["Suite"][0],          size: "500 sq ft", capacity: 4, ac: true },
 };
 
 const ROOM_TYPES = ["Deluxe Non AC", "Deluxe AC", "Suite"] as const;
