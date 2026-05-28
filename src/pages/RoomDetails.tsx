@@ -8,12 +8,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Users, Maximize2, Wind, Check, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { roomsApi } from "@/lib/api";
-import { roomImages } from "@/lib/rooms";
+import { roomImages } from "@/lib/roomImagesPublic";
+import ImageCarousel from "@/components/ui/ImageCarousel";
 import { format, addMonths, subMonths } from "date-fns";
 import { ROOM_TYPES } from "@/lib/constants";
 
 const TYPE_META: Record<string, {
-  image: string;
+  images: string[];
   description: string;
   longDescription: string;
   amenities: string[];
@@ -22,7 +23,7 @@ const TYPE_META: Record<string, {
   beds: string;
 }> = {
   "Deluxe Non AC": {
-    image: roomImages["standard"],
+    images: roomImages["Deluxe Non AC"],
     description: "Comfortable and well-appointed room with all essential amenities.",
     longDescription: "Our Deluxe Non AC rooms offer a cosy retreat designed for guests who prefer natural ventilation. Each room features quality furnishings, a comfortable bed, and all the essentials for a pleasant stay. Ideal for the cooler months.",
     amenities: ["WiFi", "TV", "Hot Water", "Room Service", "Daily Housekeeping", "Toiletries"],
@@ -31,7 +32,7 @@ const TYPE_META: Record<string, {
     beds: "1 Double Bed",
   },
   "Deluxe AC": {
-    image: roomImages["deluxe"],
+    images: roomImages["Deluxe AC"],
     description: "Spacious air-conditioned room with modern furnishings and premium amenities.",
     longDescription: "Our Deluxe AC rooms combine modern design with practical comfort. Stay cool in our air-conditioned rooms featuring contemporary interiors, a plush bed, and a range of premium amenities to make your stay truly relaxing.",
     amenities: ["WiFi", "AC", "TV", "Hot Water", "Room Service", "Mini Bar", "Daily Housekeeping", "Toiletries"],
@@ -40,7 +41,7 @@ const TYPE_META: Record<string, {
     beds: "1 King Bed or 2 Single Beds",
   },
   Suite: {
-    image: roomImages["suite"],
+    images: roomImages["Suite"],
     description: "Our finest accommodation with a separate living area and luxury amenities.",
     longDescription: "Experience the pinnacle of luxury in our Suite. Featuring a separate living area, premium furnishings, a well-appointed bathroom with bathtub, and an array of exclusive amenities. Perfect for special occasions and discerning travellers who expect the very best.",
     amenities: ["WiFi", "AC", "TV", "Hot Water", "Room Service", "Mini Bar", "Bathtub", "Lounge", "Daily Housekeeping", "Premium Toiletries", "Welcome Amenities"],
@@ -110,7 +111,7 @@ const RoomDetails = () => {
           {/* Left: image + info */}
           <div>
             <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-muted shadow-card">
-              <img src={meta.image} alt={roomType} className="h-full w-full object-cover" />
+              <ImageCarousel images={meta.images} alt={roomType} />
               <div className="absolute left-5 top-5">
                 <Badge className="rounded-full border-0 bg-background/95 px-3 py-1 text-sm font-medium text-foreground backdrop-blur">
                   {roomType}

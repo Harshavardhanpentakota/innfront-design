@@ -7,32 +7,32 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { roomsApi } from "@/lib/api";
 import { ROOM_TYPES } from "@/lib/constants";
-import { roomImages } from "@/lib/rooms";
+import { roomImages } from "@/lib/roomImagesPublic";
 import { Users, Maximize2, Wind, ArrowRight } from "lucide-react";
 
 const TYPE_META: Record<string, {
-  image: string;
+  images: string[];
   description: string;
   amenities: string[];
   capacity: number;
   size: string;
 }> = {
   "Deluxe Non AC": {
-    image: roomImages["standard"],
+    images: roomImages["Deluxe Non AC"],
     description: "Comfortable and well-appointed room with all essential amenities. Perfect for guests who value comfort without air conditioning.",
     amenities: ["WiFi", "TV", "Hot Water", "Room Service"],
     capacity: 2,
     size: "250 sq ft",
   },
   "Deluxe AC": {
-    image: roomImages["deluxe"],
+    images: roomImages["Deluxe AC"],
     description: "Spacious air-conditioned room with modern furnishings. Enjoy a cool, relaxing stay with premium amenities and stylish interiors.",
     amenities: ["WiFi", "AC", "TV", "Hot Water", "Room Service", "Mini Bar"],
     capacity: 3,
     size: "300 sq ft",
   },
   Suite: {
-    image: roomImages["suite"],
+    images: roomImages["Suite"],
     description: "Our finest accommodation with a separate living area, luxury amenities, and stunning views. An unparalleled experience of elegance.",
     amenities: ["WiFi", "AC", "TV", "Hot Water", "Room Service", "Mini Bar", "Bathtub", "Lounge"],
     capacity: 4,
@@ -52,11 +52,14 @@ function RoomTypeCard({ roomType, checkIn, checkOut }: { roomType: string; check
   if (checkIn) bookingParams.set("checkIn", checkIn);
   if (checkOut) bookingParams.set("checkOut", checkOut);
 
+  // Show first image only; for carousel, map meta.images
+  const mainImage = meta.images[0];
+
   return (
     <article className="group hover-lift overflow-hidden rounded-2xl border border-border bg-card shadow-card flex flex-col">
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         <img
-          src={meta.image}
+          src={mainImage}
           alt={roomType}
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
