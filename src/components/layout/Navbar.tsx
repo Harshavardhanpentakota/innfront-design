@@ -13,8 +13,8 @@ import { AuthModal } from "@/components/auth/AuthModal";
 const links = [
   { to: "/", label: "Home" },
   { to: "/rooms", label: "Rooms" },
-  { to: "/booking", label: "Booking" },
-  { to: "/my-bookings", label: "My Bookings" },
+  { to: "/about", label: "About" },
+  { to: "/contact", label: "Contact" },
 ];
 
 export const Navbar = () => {
@@ -196,3 +196,4 @@ export const Navbar = () => {
     </header>
   );
 };
+export default Navbar;

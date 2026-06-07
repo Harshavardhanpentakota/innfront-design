@@ -16,6 +16,9 @@ import CancellationPolicy from "./pages/CancellationPolicy.tsx";
 import TermsOfService from "./pages/TermsOfService.tsx";
 import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
 import Contact from "./pages/Contact.tsx";
+import About from "./pages/About.tsx";
+import StayCalculator from "./pages/StayCalculator.tsx";
+import RoomComparison from "./pages/RoomComparison.tsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -51,6 +54,9 @@ const App = () => (
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/tools/stay-calculator" element={<StayCalculator />} />
+            <Route path="/tools/room-comparison" element={<RoomComparison />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

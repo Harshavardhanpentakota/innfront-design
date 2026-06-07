@@ -9,6 +9,7 @@ import { roomsApi } from "@/lib/api";
 import { ROOM_TYPES } from "@/lib/constants";
 import { roomImages } from "@/lib/roomImagesPublic";
 import { Users, Maximize2, Wind, ArrowRight } from "lucide-react";
+import { SEO } from "@/components/seo/SEO";
 
 const TYPE_META: Record<string, {
   images: string[];
@@ -52,7 +53,6 @@ function RoomTypeCard({ roomType, checkIn, checkOut }: { roomType: string; check
   if (checkIn) bookingParams.set("checkIn", checkIn);
   if (checkOut) bookingParams.set("checkOut", checkOut);
 
-  // Show first image only; for carousel, map meta.images
   const mainImage = meta.images[0];
 
   return (
@@ -119,12 +119,74 @@ function RoomTypeCard({ roomType, checkIn, checkOut }: { roomType: string; check
   );
 }
 
+const roomsSchema = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://abhitejinn.com/rooms",
+      "url": "https://abhitejinn.com/rooms",
+      "name": "Luxury Rooms & Suites | Hotel Abhitej INN Araku",
+      "description": "Explore premium accommodations at Hotel Abhitej INN. Choose from Deluxe Non AC, Deluxe AC, and luxury Suites tailored for your perfect Araku escape.",
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://abhitejinn.com/" },
+          { "@type": "ListItem", "position": 2, "name": "Rooms", "item": "https://abhitejinn.com/rooms" }
+        ]
+      }
+    },
+    {
+      "@type": "ItemList",
+      "name": "Hotel Abhitej INN Room Types",
+      "numberOfItems": 3,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "item": {
+            "@type": "Accommodation",
+            "name": "Deluxe Non AC Room",
+            "description": "Comfortable and well-appointed room with all essential amenities.",
+            "url": "https://abhitejinn.com/rooms/Deluxe%20Non%20AC"
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "item": {
+            "@type": "Accommodation",
+            "name": "Deluxe AC Room",
+            "description": "Spacious air-conditioned room with modern furnishings and premium amenities.",
+            "url": "https://abhitejinn.com/rooms/Deluxe%20AC"
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "item": {
+            "@type": "Accommodation",
+            "name": "Presidential Suite",
+            "description": "Our finest accommodation with a separate living area and luxury amenities.",
+            "url": "https://abhitejinn.com/rooms/Suite"
+          }
+        }
+      ]
+    }
+  ]
+};
+
 const Rooms = () => {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
 
   return (
     <PageLayout>
+      <SEO
+        title="Luxury Rooms & Suites | Hotel Abhitej INN Araku"
+        description="Book luxury hotel rooms in Araku Valley. Select from Deluxe Non AC, Deluxe AC, or Presidential Suites. 24/7 service, free Wi-Fi, and best rate guaranteed."
+        schema={roomsSchema}
+      />
       <section className="border-b border-border bg-muted/40 py-12 md:py-16">
         <div className="container-page">
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Our Rooms</span>
@@ -170,6 +232,26 @@ const Rooms = () => {
           {ROOM_TYPES.map((type) => (
             <RoomTypeCard key={type} roomType={type} checkIn={checkIn} checkOut={checkOut} />
           ))}
+        </div>
+      </section>
+
+      {/* Related planning tools */}
+      <section className="container-page pb-16 pt-4 border-t border-border">
+        <div className="rounded-2xl bg-muted/50 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="max-w-xl">
+            <h2 className="font-display text-2xl font-bold">Unsure which room suits you best?</h2>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              Use our interactive comparison tables and pricing calculators to estimate your stay budget and view specific room amenities.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3 shrink-0">
+            <Button asChild variant="outline" className="rounded-full bg-background">
+              <Link to="/tools/room-comparison">Compare Rooms Side-by-Side</Link>
+            </Button>
+            <Button asChild className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
+              <Link to="/tools/stay-calculator">Calculate Stay Budget</Link>
+            </Button>
+          </div>
         </div>
       </section>
     </PageLayout>

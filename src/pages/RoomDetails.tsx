@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +12,7 @@ import { roomImages } from "@/lib/roomImagesPublic";
 import ImageCarousel from "@/components/ui/ImageCarousel";
 import { format, addMonths, subMonths } from "date-fns";
 import { ROOM_TYPES } from "@/lib/constants";
+import { SEO } from "@/components/seo/SEO";
 
 const TYPE_META: Record<string, {
   images: string[];
@@ -51,6 +52,12 @@ const TYPE_META: Record<string, {
   },
 };
 
+const priceRangeMap: Record<string, number> = {
+  "Deluxe Non AC": 1500,
+  "Deluxe AC": 2200,
+  "Suite": 4000,
+};
+
 const RoomDetails = () => {
   const { type: rawType } = useParams<{ type: string }>();
   const navigate = useNavigate();
@@ -67,7 +74,7 @@ const RoomDetails = () => {
     enabled: !!roomType && !!meta,
     staleTime: 1000 * 60 * 10,
   });
-  const price = data?.data?.[0]?.price;
+  const price = data?.data?.[0]?.price || priceRangeMap[roomType] || 2000;
 
   // Fetch unavailable dates for current calendar month
   const { data: unavailData } = useQuery({
@@ -100,8 +107,56 @@ const RoomDetails = () => {
   if (checkIn) bookingParams.set("checkIn", checkIn);
   if (checkOut) bookingParams.set("checkOut", checkOut);
 
+  // Structured Schema representing the dynamic Accommodation Product
+  const roomSchema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `https://abhitejinn.com/rooms/${encodeURIComponent(roomType)}`,
+        "url": `https://abhitejinn.com/rooms/${encodeURIComponent(roomType)}`,
+        "name": `${roomType} Room | Hotel Abhitej INN Araku`,
+        "description": meta.description,
+        "breadcrumb": {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://abhitejinn.com/" },
+            { "@type": "ListItem", "position": 2, "name": "Rooms", "item": "https://abhitejinn.com/rooms" },
+            { "@type": "ListItem", "position": 3, "name": roomType, "item": `https://abhitejinn.com/rooms/${encodeURIComponent(roomType)}` }
+          ]
+        }
+      },
+      {
+        "@type": "Accommodation",
+        "name": roomType,
+        "description": meta.longDescription,
+        "numberOfRooms": 1,
+        "occupancy": {
+          "@type": "QuantitativeValue",
+          "maxValue": meta.capacity
+        },
+        "floorSize": {
+          "@type": "QuantitativeValue",
+          "value": meta.size.replace(" sq ft", ""),
+          "unitCode": "FTK"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": price,
+          "priceCurrency": "INR",
+          "valueAddedTaxIncluded": false
+        }
+      }
+    ]
+  };
+
   return (
     <PageLayout>
+      <SEO
+        title={`${roomType} Room | Hotel Abhitej INN Araku Valley`}
+        description={`Book our spacious ${roomType} at Hotel Abhitej INN. Size: ${meta.size}, Capacity: Up to ${meta.capacity} guests, ${meta.beds}. Check availability calendar and reserve online.`}
+        schema={roomSchema}
+      />
       <div className="container-page py-8 md:py-12">
         <Button variant="ghost" className="mb-4 -ml-2 rounded-full" onClick={() => navigate("/rooms")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> All room types
@@ -134,7 +189,7 @@ const RoomDetails = () => {
               <p className="mt-5 text-base leading-relaxed text-muted-foreground">{meta.longDescription}</p>
 
               <div className="mt-8">
-                <h3 className="font-display text-xl font-semibold">What this room offers</h3>
+                <h2 className="font-display text-xl font-semibold">What this room offers</h2>
                 <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {meta.amenities.map((f) => (
                     <li key={f} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
@@ -255,6 +310,42 @@ const RoomDetails = () => {
               </p>
             </div>
           </aside>
+        </div>
+
+        {/* Related rooms & tools linking */}
+        <div className="mt-16 border-t border-border pt-12">
+          <h3 className="font-display text-2xl font-bold mb-6 text-foreground">Explore Other Accommodations</h3>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {ROOM_TYPES.filter(type => type !== roomType).map(type => (
+              <div key={type} className="rounded-xl border border-border p-5 bg-card flex flex-col justify-between">
+                <div>
+                  <h4 className="font-display text-lg font-semibold text-foreground">{type}</h4>
+                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
+                    {TYPE_META[type]?.description}
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                  <span className="text-xs font-semibold text-primary">{TYPE_META[type]?.size}</span>
+                  <Button asChild size="sm" variant="ghost" className="-mr-2 text-xs">
+                    <Link to={`/rooms/${encodeURIComponent(type)}`}>
+                      Details <ArrowRight className="ml-1 h-3 w-3" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <div className="rounded-xl border border-dashed border-primary/40 p-5 bg-primary-soft/30 flex flex-col justify-between">
+              <div>
+                <h4 className="font-display text-lg font-semibold text-primary-deep">Stay Budget Calculator</h4>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                  Plan your travel budget by estimating taxes, extra beds, and meals.
+                </p>
+              </div>
+              <Button asChild size="sm" className="w-full mt-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/95">
+                <Link to="/tools/stay-calculator">Calculate Stay Cost</Link>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </PageLayout>

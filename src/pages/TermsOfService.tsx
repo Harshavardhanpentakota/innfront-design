@@ -1,6 +1,7 @@
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
+import { SEO } from "@/components/seo/SEO";
 
 const TERMS = [
   {
@@ -41,44 +42,71 @@ const TERMS = [
   },
 ];
 
-const TermsOfService = () => (
-  <PageLayout>
-    <section className="border-b border-border bg-muted/40 py-12">
-      <div className="container-page">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Home
-        </Link>
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Legal</span>
-        <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight">Terms of Service</h1>
-        <p className="mt-3 max-w-xl text-muted-foreground text-sm">
-          By making a booking or staying at Hotel Abhitej Inn, you agree to the following terms and conditions.
-        </p>
-      </div>
-    </section>
+const TermsOfService = () => {
+  const policySchema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": "https://abhitejinn.com/terms-of-service",
+        "url": "https://abhitejinn.com/terms-of-service",
+        "name": "Terms of Service | Hotel Abhitej INN Araku",
+        "description": "Read the guest terms and conditions, check-in requirements, and liability policies for staying at Hotel Abhitej INN Araku.",
+        "breadcrumb": {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://abhitejinn.com/" },
+            { "@type": "ListItem", "position": 2, "name": "Terms of Service", "item": "https://abhitejinn.com/terms-of-service" }
+          ]
+        }
+      }
+    ]
+  };
 
-    <section className="container-page py-12 max-w-3xl">
-      <ol className="space-y-5">
-        {TERMS.map((term, i) => (
-          <li key={i} className="rounded-2xl border border-border bg-card p-6 shadow-soft">
-            <div className="flex items-start gap-4">
-              <span className="shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-primary-deep font-bold text-sm">
-                {i + 1}
-              </span>
-              <div>
-                <h3 className="font-display text-base font-semibold">{term.title}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{term.content}</p>
+  return (
+    <PageLayout>
+      <SEO
+        title="Terms of Service & Stay Guidelines | Hotel Abhitej INN Araku"
+        description="Read the terms of service and lodging guidelines for Hotel Abhitej INN. View rules on check-in times, guest conduct, prohibited items, and liability."
+        schema={policySchema}
+      />
+      <section className="border-b border-border bg-muted/40 py-12">
+        <div className="container-page">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Home
+          </Link>
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Legal</span>
+          <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight">Terms of Service</h1>
+          <p className="mt-3 max-w-xl text-muted-foreground text-sm">
+            By making a booking or staying at Hotel Abhitej Inn, you agree to the following terms and conditions.
+          </p>
+        </div>
+      </section>
+
+      <section className="container-page py-12 max-w-3xl">
+        <ol className="space-y-5">
+          {TERMS.map((term, i) => (
+            <li key={i} className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+              <div className="flex items-start gap-4">
+                <span className="shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-primary-deep font-bold text-sm">
+                  {i + 1}
+                </span>
+                <div>
+                  <h2 className="font-display text-base font-semibold">{term.title}</h2>
+                  <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{term.content}</p>
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
 
-      <p className="mt-8 text-xs text-muted-foreground text-center">
-        Last updated: May 2026 · For queries, contact us at{" "}
-        <a href="mailto:abhitejinn11@gmail.com" className="text-primary hover:underline">abhitejinn11@gmail.com</a>
-      </p>
-    </section>
-  </PageLayout>
-);
+        <p className="mt-8 text-xs text-muted-foreground text-center">
+          Last updated: June 2026 · Verified by Hotel Abhitej INN Legal Department · For queries, contact us at{" "}
+          <a href="mailto:abhitejinn11@gmail.com" className="text-primary hover:underline">abhitejinn11@gmail.com</a>
+        </p>
+      </section>
+    </PageLayout>
+  );
+};
 
 export default TermsOfService;
