@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { NotificationBell } from "./NotificationBell";
 
 const links = [
   { to: "/", label: "Home" },
@@ -77,7 +78,8 @@ export const Navbar = () => {
         </nav>
 
         {/* Desktop Auth */}
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center gap-3 lg:flex">
+          {user && <NotificationBell />}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

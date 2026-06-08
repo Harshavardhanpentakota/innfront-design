@@ -16,6 +16,7 @@ import { roomsApi, bookingsApi, paymentsApi, settingsApi, ApiError } from "@/lib
 import { roomImages } from "@/lib/rooms";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { Day } from "react-day-picker";
 
 declare global {
   interface Window {
@@ -43,7 +44,82 @@ const TYPE_IMAGES: Record<string, string> = {
 const steps = ["Dates & Guests", "Your Details", "Summary", "Confirmation"];
 
 // ─── DateField helper ─────────────────────────────────────────────
-function DateField({ label, value, onChange }: { label: string; value: Date | undefined; onChange: (d: Date | undefined) => void }) {
+function DateField({
+  label,
+  value,
+  onChange,
+  roomType,
+  minDate
+}: {
+  label: string;
+  value: Date | undefined;
+  onChange: (d: Date | undefined) => void;
+  roomType: string;
+  minDate?: Date;
+}) {
+  const [calMonth, setCalMonth] = useState<Date>(() => value || minDate || new Date());
+
+  useEffect(() => {
+    if (value) {
+      setCalMonth(value);
+    }
+  }, [value]);
+
+  useEffect(() => {
+    if (minDate && !value) {
+      setCalMonth(minDate);
+    }
+  }, [minDate, value]);
+
+  const { data: availabilityData } = useQuery({
+    queryKey: ["rooms-availability", roomType, calMonth.getFullYear(), calMonth.getMonth() + 1],
+    queryFn: () => roomsApi.getAvailability(roomType, {
+      year: String(calMonth.getFullYear()),
+      month: String(calMonth.getMonth() + 1)
+    }),
+    enabled: !!roomType,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const fullyBookedSet = new Set<string>(availabilityData?.data?.fullyBookedDates ?? []);
+  const limitedSet = new Set<string>(availabilityData?.data?.limitedAvailabilityDates ?? []);
+
+  const isFullyBooked = (d: Date) => {
+    const key = format(d, "yyyy-MM-dd");
+    return fullyBookedSet.has(key);
+  };
+
+  const isLimited = (d: Date) => {
+    const key = format(d, "yyyy-MM-dd");
+    return limitedSet.has(key);
+  };
+
+  const isAvailable = (d: Date) => {
+    const key = format(d, "yyyy-MM-dd");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (d < today) return false;
+    return !fullyBookedSet.has(key) && !limitedSet.has(key);
+  };
+
+  const isDisabled = (d: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Disable past dates
+    if (d < today) return true;
+
+    // Disable dates before minDate (if provided)
+    if (minDate) {
+      const minDateCompare = new Date(minDate);
+      minDateCompare.setHours(0, 0, 0, 0);
+      if (d <= minDateCompare) return true;
+    }
+
+    // Disable fully booked dates
+    return isFullyBooked(d);
+  };
+
   return (
     <div className="flex flex-col gap-1.5">
       <Label className="text-sm font-medium">{label}</Label>
@@ -57,14 +133,53 @@ function DateField({ label, value, onChange }: { label: string; value: Date | un
             {value ? format(value, "PPP") : "Pick a date"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-4" align="start">
           <Calendar
             mode="single"
             selected={value}
             onSelect={onChange}
-            disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+            month={calMonth}
+            onMonthChange={setCalMonth}
+            disabled={isDisabled}
+            modifiers={{
+              fullyBooked: (d) => isFullyBooked(d),
+              limited: (d) => isLimited(d),
+              available: (d) => isAvailable(d),
+            }}
+            modifiersClassNames={{
+              fullyBooked: "!bg-destructive/15 !text-destructive line-through hover:!bg-destructive/25 cursor-not-allowed",
+              limited: "!bg-amber-500/15 !text-amber-700 hover:!bg-amber-500/25 font-semibold",
+              available: "!bg-emerald-500/15 !text-emerald-700 hover:!bg-emerald-500/25",
+            }}
+            classNames={{
+              day_selected: "bg-primary text-primary-foreground hover:bg-primary",
+            }}
+            components={{
+              Day: (props) => {
+                const isBooked = isFullyBooked(props.date);
+                return (
+                  <span title={isBooked ? "Fully Booked" : undefined} className="w-full h-full block">
+                    <Day {...props} />
+                  </span>
+                );
+              }
+            }}
             initialFocus
           />
+          <div className="mt-3 flex gap-4 text-[10px] border-t border-border pt-2 px-1 justify-center">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500/30" />
+              Available
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500/30" />
+              Limited
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-destructive/30" />
+              Fully booked
+            </span>
+          </div>
         </PopoverContent>
       </Popover>
     </div>
@@ -331,8 +446,24 @@ const Booking = () => {
               <div className="space-y-6 animate-fade-up">
                 <h2 className="font-display text-2xl font-semibold">When are you staying?</h2>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <DateField label="Check-in" value={checkIn} onChange={setCheckIn} />
-                  <DateField label="Check-out" value={checkOut} onChange={setCheckOut} />
+                  <DateField
+                    label="Check-in"
+                    value={checkIn}
+                    onChange={(d) => {
+                      setCheckIn(d);
+                      if (d && checkOut && d >= checkOut) {
+                        setCheckOut(undefined);
+                      }
+                    }}
+                    roomType={roomType}
+                  />
+                  <DateField
+                    label="Check-out"
+                    value={checkOut}
+                    onChange={setCheckOut}
+                    roomType={roomType}
+                    minDate={checkIn}
+                  />
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Guests</Label>

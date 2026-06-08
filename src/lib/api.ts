@@ -158,6 +158,20 @@ export const roomsApi = {
     return request<{ data: { dates: string[] } }>(`/rooms/type-unavailable-dates?${qs}`, { auth: false });
   },
 
+  getAvailability: (roomType: string, params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<{
+      success: boolean;
+      data: {
+        roomType: string;
+        inventory: number;
+        available: number;
+        fullyBookedDates: string[];
+        limitedAvailabilityDates: string[];
+      }
+    }>(`/rooms/${encodeURIComponent(roomType)}/availability${qs}`, { auth: false });
+  },
+
   // Admin only
   create: (payload: Partial<Room>) =>
     request('/rooms', { method: 'POST', body: JSON.stringify(payload) }),
@@ -322,6 +336,7 @@ export interface Room {
   floor: number;
   type: string;
   price: number;
+  customPrice?: number;
   capacity: number;
   size?: string;
   beds?: string;
@@ -369,3 +384,32 @@ export interface PaginationMeta {
   hasNextPage: boolean;
   hasPrevPage: boolean;
 }
+
+export interface Notification {
+  _id: string;
+  recipientId?: string | null;
+  recipientRole?: 'admin' | 'receptionist' | 'user' | null;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export const notificationsApi = {
+  getNotifications: (page = 1, limit = 50) =>
+    request<{ notifications: Notification[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
+      `/notifications?page=${page}&limit=${limit}`
+    ),
+  getUnreadCount: () =>
+    request<{ count: number }>('/notifications/unread-count'),
+  readNotification: (id: string) =>
+    request<{ notification: Notification }>(`/notifications/${id}/read`, { method: 'PATCH' }),
+  readAll: () =>
+    request<{ message: string }>('/notifications/read-all', { method: 'PATCH' }),
+  getStreamUrl: () => {
+    const token = getAccessToken();
+    return `${BASE_URL}/notifications/stream?token=${token}`;
+  }
+};

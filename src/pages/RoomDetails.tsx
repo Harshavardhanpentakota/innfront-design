@@ -13,6 +13,7 @@ import ImageCarousel from "@/components/ui/ImageCarousel";
 import { format, addMonths, subMonths } from "date-fns";
 import { ROOM_TYPES } from "@/lib/constants";
 import { SEO } from "@/components/seo/SEO";
+import { Day } from "react-day-picker";
 
 const TYPE_META: Record<string, {
   images: string[];
@@ -76,18 +77,34 @@ const RoomDetails = () => {
   });
   const price = data?.data?.[0]?.price || priceRangeMap[roomType] || 2000;
 
-  // Fetch unavailable dates for current calendar month
-  const { data: unavailData } = useQuery({
-    queryKey: ["type-unavailable-dates", roomType, calMonth.getFullYear(), calMonth.getMonth() + 1],
-    queryFn: () => roomsApi.getTypeUnavailableDates(roomType, calMonth.getFullYear(), calMonth.getMonth() + 1),
+  // Fetch availability (fullyBooked, limitedAvailability) for current calendar month
+  const { data: availabilityData } = useQuery({
+    queryKey: ["rooms-availability", roomType, calMonth.getFullYear(), calMonth.getMonth() + 1],
+    queryFn: () => roomsApi.getAvailability(roomType, {
+      year: String(calMonth.getFullYear()),
+      month: String(calMonth.getMonth() + 1)
+    }),
     enabled: !!roomType && !!meta,
     staleTime: 1000 * 60 * 5,
   });
-  const unavailableSet = new Set<string>(unavailData?.data?.dates ?? []);
 
-  const isUnavailable = (d: Date) => {
+  const fullyBookedSet = new Set<string>(availabilityData?.data?.fullyBookedDates ?? []);
+  const limitedSet = new Set<string>(availabilityData?.data?.limitedAvailabilityDates ?? []);
+
+  const isFullyBooked = (d: Date) => {
     const key = format(d, "yyyy-MM-dd");
-    return unavailableSet.has(key);
+    return fullyBookedSet.has(key);
+  };
+
+  const isLimited = (d: Date) => {
+    const key = format(d, "yyyy-MM-dd");
+    return limitedSet.has(key);
+  };
+
+  const isAvailable = (d: Date) => {
+    const key = format(d, "yyyy-MM-dd");
+    if (d < new Date(new Date().setHours(0, 0, 0, 0))) return false;
+    return !fullyBookedSet.has(key) && !limitedSet.has(key);
   };
 
   if (!meta) {
@@ -237,25 +254,45 @@ const RoomDetails = () => {
                     mode="single"
                     month={calMonth}
                     onMonthChange={setCalMonth}
-                    disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                    modifiers={{ unavailable: (d) => isUnavailable(d) }}
+                    disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0)) || isFullyBooked(d)}
+                    modifiers={{
+                      fullyBooked: (d) => isFullyBooked(d),
+                      limited: (d) => isLimited(d),
+                      available: (d) => isAvailable(d),
+                    }}
                     modifiersClassNames={{
-                      unavailable: "!bg-destructive/15 !text-destructive line-through hover:!bg-destructive/25",
+                      fullyBooked: "!bg-destructive/15 !text-destructive line-through hover:!bg-destructive/25 cursor-not-allowed",
+                      limited: "!bg-amber-500/15 !text-amber-700 hover:!bg-amber-500/25 font-semibold",
+                      available: "!bg-emerald-500/15 !text-emerald-700 hover:!bg-emerald-500/25",
                     }}
                     classNames={{
                       day_selected: "bg-primary text-primary-foreground hover:bg-primary",
+                    }}
+                    components={{
+                      Day: (props) => {
+                        const isBooked = isFullyBooked(props.date);
+                        return (
+                          <span title={isBooked ? "Fully Booked" : undefined} className="w-full h-full block">
+                            <Day {...props} />
+                          </span>
+                        );
+                      }
                     }}
                   />
                 </div>
 
                 <div className="mt-3 flex gap-4 text-xs">
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-3 w-3 rounded-full bg-destructive/30" />
-                    Fully booked
+                    <span className="inline-block h-3 w-3 rounded-full bg-emerald-500/30" />
+                    Available
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-3 w-3 rounded-full bg-primary/30" />
-                    Available
+                    <span className="inline-block h-3 w-3 rounded-full bg-amber-500/30" />
+                    Limited
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-3 w-3 rounded-full bg-destructive/30" />
+                    Fully booked
                   </span>
                 </div>
               </div>
