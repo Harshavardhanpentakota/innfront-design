@@ -200,6 +200,13 @@ const BookingCard = ({ booking: b, cancelling, onCancel }: CardProps) => {
               {cancelling ? "Cancelling..." : "Cancel Booking"}
             </Button>
           )}
+          {b.status === "pending" && b.paymentStatus === "pending" && (b as any).advancePaid === 0 && (
+            <Button asChild size="sm" className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow hover:opacity-95">
+              <Link to={`/booking?roomType=${encodeURIComponent(b.roomType)}&bookingId=${b._id}`}>
+                Continue Booking
+              </Link>
+            </Button>
+          )}
           {isCheckedOut && mongoBookingId && (
             <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={handleDownloadInvoice}>
               <Download className="h-3.5 w-3.5" /> Download Invoice

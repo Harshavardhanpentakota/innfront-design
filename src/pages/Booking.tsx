@@ -200,8 +200,15 @@ const Booking = () => {
   const roomType = searchParams.get("roomType") ?? "";
   const checkInParam = searchParams.get("checkIn");
   const checkOutParam = searchParams.get("checkOut");
+  const bookingIdParam = searchParams.get("bookingId");
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const { data: resumedBookingData, isLoading: resumedBookingLoading } = useQuery({
+    queryKey: ["resumed-booking", bookingIdParam],
+    queryFn: () => bookingsApi.getById(bookingIdParam!),
+    enabled: !!bookingIdParam,
+  });
 
   const sessionKey = `booking-step-${roomType}`;
   const dataKey   = `booking-data-${roomType}`;
@@ -213,6 +220,7 @@ const Booking = () => {
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [step, setStep] = useState(() => {
+    if (bookingIdParam) return 3;
     const saved = sessionStorage.getItem(sessionKey);
     if (!saved) return 0;
     const s = parseInt(saved, 10);
@@ -272,6 +280,21 @@ const Booking = () => {
       setPhone(user.phone ?? "");
     }
   }, [user]);
+
+  useEffect(() => {
+    if (resumedBookingData?.data) {
+      const b = resumedBookingData.data as any;
+      setCreatedBooking(b);
+      setCheckIn(new Date(b.checkInDate));
+      setCheckOut(new Date(b.checkOutDate));
+      setGuests(String(b.guests));
+      setName(b.user?.name ?? b.guestDetails?.name ?? "");
+      setEmail(b.user?.email ?? b.guestDetails?.email ?? "");
+      setPhone(b.user?.phone ?? b.guestDetails?.phone ?? "");
+      setSpecialRequests(b.specialRequests ?? "");
+      setStep(3);
+    }
+  }, [resumedBookingData]);
 
   // Fetch representative room to get price for this type
   const { data: roomTypeData, isLoading: priceLoading } = useQuery({
@@ -369,8 +392,9 @@ const Booking = () => {
             setPaymentStatus("success");
             sessionStorage.removeItem(sessionKey);
             sessionStorage.removeItem(dataKey);
-          } catch {
+          } catch (err: any) {
             setPaymentStatus("failed");
+            setApiError(err.message || "Payment verification failed.");
           }
         },
         modal: {
@@ -380,10 +404,22 @@ const Booking = () => {
         },
       });
       rzp.open();
-    } catch {
+    } catch (err: any) {
       setPaymentStatus("failed");
+      setApiError(err.message || "Payment initiation failed. Please try again.");
     }
   };
+
+  if (bookingIdParam && resumedBookingLoading) {
+    return (
+      <PageLayout>
+        <div className="container-page py-20 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p>Loading your booking details...</p>
+        </div>
+      </PageLayout>
+    );
+  }
 
   if (!roomType) {
     return (
@@ -607,6 +643,9 @@ const Booking = () => {
                     </p>
                     {paymentStatus === "failed" && (
                       <p className="text-xs text-destructive">Payment failed or was cancelled. Please try again.</p>
+                    )}
+                    {apiError && (
+                      <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg font-medium">{apiError}</p>
                     )}
                     <div className="flex gap-3">
                       <Button
