@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,106 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarCheck, Mail, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { usersApi, ApiError } from "@/lib/api";
+import { usersApi, authApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+
+const ChangePasswordCard = () => {
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const changeMutation = useMutation({
+    mutationFn: () => authApi.changePassword(currentPw, newPw),
+    onSuccess: () => {
+      setSuccess(true);
+      setError("");
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmPw("");
+      setTimeout(() => setSuccess(false), 3000);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) setError(err.message);
+      else setError("Failed to update password. Please check your credentials.");
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (newPw.length < 8) {
+      setError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setError("New passwords do not match.");
+      return;
+    }
+    changeMutation.mutate();
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
+      <h3 className="font-display text-xl font-semibold">Change password</h3>
+      <p className="text-sm text-muted-foreground">Keep your account secure by updating your password regularly.</p>
+
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div className="grid gap-5 md:grid-cols-3">
+          <div>
+            <Label>Current password</Label>
+            <Input
+              type="password"
+              className="mt-1.5 h-12 rounded-xl"
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label>New password</Label>
+            <Input
+              type="password"
+              className="mt-1.5 h-12 rounded-xl"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label>Confirm new password</Label>
+            <Input
+              type="password"
+              className="mt-1.5 h-12 rounded-xl"
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        {error && (
+          <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{error}</p>
+        )}
+        {success && (
+          <p className="mt-4 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">Password updated successfully.</p>
+        )}
+
+        <div className="flex justify-end pt-4 border-t border-border mt-6">
+          <Button
+            type="submit"
+            disabled={changeMutation.isPending}
+            className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow"
+          >
+            {changeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {changeMutation.isPending ? "Updating..." : "Update password"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+};
 
 const Profile = () => {
   const { user, refreshUser } = useAuth();
@@ -78,56 +176,62 @@ const Profile = () => {
           </div>
         </aside>
 
-        {/* Edit form */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
-          <h3 className="font-display text-xl font-semibold">Personal information</h3>
-          <p className="text-sm text-muted-foreground">Update your details to keep your account current.</p>
+        {/* Right column content stack */}
+        <div className="space-y-8">
+          {/* Edit form */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-card md:p-8">
+            <h3 className="font-display text-xl font-semibold">Personal information</h3>
+            <p className="text-sm text-muted-foreground">Update your details to keep your account current.</p>
 
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
-            <div>
-              <Label>Full name</Label>
-              <Input className="mt-1.5 h-12 rounded-xl" value={name} onChange={(e) => setName(e.target.value)} />
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <div>
+                <Label>Full name</Label>
+                <Input className="mt-1.5 h-12 rounded-xl" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div>
+                <Label>Email address</Label>
+                <Input className="mt-1.5 h-12 rounded-xl bg-muted/60" value={user.email} readOnly />
+              </div>
+              <div>
+                <Label>Phone</Label>
+                <Input className="mt-1.5 h-12 rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
+              </div>
             </div>
-            <div>
-              <Label>Email address</Label>
-              <Input className="mt-1.5 h-12 rounded-xl bg-muted/60" value={user.email} readOnly />
+
+            {saveError && (
+              <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{saveError}</p>
+            )}
+            {saved && (
+              <p className="mt-4 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">Profile updated successfully.</p>
+            )}
+
+            <div className="mt-8 flex flex-wrap gap-3 border-t border-border pt-6">
+              <Button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow"
+              >
+                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saveMutation.isPending ? "Saving..." : "Save changes"}
+              </Button>
+              <Button variant="ghost" className="rounded-full" onClick={() => { setName(user.name); setPhone(user.phone ?? ""); }}>
+                Cancel
+              </Button>
             </div>
-            <div>
-              <Label>Phone</Label>
-              <Input className="mt-1.5 h-12 rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
-            </div>
-          </div>
 
-          {saveError && (
-            <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{saveError}</p>
-          )}
-          {saved && (
-            <p className="mt-4 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">Profile updated successfully.</p>
-          )}
-
-          <div className="mt-8 flex flex-wrap gap-3 border-t border-border pt-6">
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow"
-            >
-              {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {saveMutation.isPending ? "Saving..." : "Save changes"}
-            </Button>
-            <Button variant="ghost" className="rounded-full" onClick={() => { setName(user.name); setPhone(user.phone ?? ""); }}>
-              Cancel
-            </Button>
-          </div>
-
-          <div className="mt-8 rounded-xl bg-muted/50 p-4">
-            <div className="flex items-start gap-3">
-              <Mail className="mt-0.5 h-4 w-4 text-primary" />
-              <div className="text-sm">
-                <div className="font-medium">Stay informed</div>
-                <p className="text-muted-foreground">We'll send booking confirmations and offers to {user.email}.</p>
+            <div className="mt-8 rounded-xl bg-muted/50 p-4">
+              <div className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-4 w-4 text-primary" />
+                <div className="text-sm">
+                  <div className="font-medium">Stay informed</div>
+                  <p className="text-muted-foreground">We'll send booking confirmations and offers to {user.email}.</p>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Change Password Card */}
+          <ChangePasswordCard />
         </div>
       </section>
     </PageLayout>
