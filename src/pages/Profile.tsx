@@ -27,7 +27,9 @@ const ChangePasswordCard = () => {
       setTimeout(() => setSuccess(false), 3000);
     },
     onError: (err) => {
-      if (err instanceof ApiError) setError(err.message);
+      if (err instanceof ApiError) {
+        setError(err.errors && err.errors.length > 0 ? err.errors.map(x => x.message).join("\n") : err.message);
+      }
       else setError("Failed to update password. Please check your credentials.");
     },
   });
@@ -86,7 +88,7 @@ const ChangePasswordCard = () => {
         </div>
 
         {error && (
-          <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{error}</p>
+          <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">{error}</p>
         )}
         {success && (
           <p className="mt-4 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">Password updated successfully.</p>
@@ -130,7 +132,9 @@ const Profile = () => {
       setTimeout(() => setSaved(false), 2500);
     },
     onError: (err) => {
-      if (err instanceof ApiError) setSaveError(err.message);
+      if (err instanceof ApiError) {
+        setSaveError(err.errors && err.errors.length > 0 ? err.errors.map(x => x.message).join("\n") : err.message);
+      }
       else setSaveError("Failed to save. Please try again.");
     },
   });
@@ -199,7 +203,7 @@ const Profile = () => {
             </div>
 
             {saveError && (
-              <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{saveError}</p>
+              <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">{saveError}</p>
             )}
             {saved && (
               <p className="mt-4 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">Profile updated successfully.</p>

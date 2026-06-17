@@ -6,8 +6,9 @@ import { CalendarDays, ArrowRight, MapPin, Loader2, Download, Receipt } from "lu
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersApi, bookingsApi, invoicesApi, type Booking } from "@/lib/api";
+import { usersApi, bookingsApi, invoicesApi, type Booking, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,12 @@ const MyBookings = () => {
     onSettled: () => {
       setCancelId(null);
       queryClient.invalidateQueries({ queryKey: ["myBookings"] });
+    },
+    onError: (err: any) => {
+      const msg = err instanceof ApiError && err.errors && err.errors.length > 0
+        ? err.errors.map((x: any) => x.message).join("\n")
+        : err instanceof ApiError ? err.message : "Failed to cancel booking.";
+      toast.error(<span className="whitespace-pre-wrap">{msg}</span>);
     },
   });
 

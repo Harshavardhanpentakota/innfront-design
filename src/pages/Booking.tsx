@@ -341,8 +341,13 @@ const Booking = () => {
       setApiError("");
     },
     onError: (err) => {
-      if (err instanceof ApiError) setApiError(err.message);
-      else setApiError("Booking failed. Please try again.");
+      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
+        setApiError(err.errors.map(x => x.message).join("\n"));
+      } else if (err instanceof ApiError) {
+        setApiError(err.message);
+      } else {
+        setApiError("Booking failed. Please try again.");
+      }
     },
   });
 
@@ -394,7 +399,11 @@ const Booking = () => {
             sessionStorage.removeItem(dataKey);
           } catch (err: any) {
             setPaymentStatus("failed");
-            setApiError(err.message || "Payment verification failed.");
+            if (err instanceof ApiError && err.errors && err.errors.length > 0) {
+              setApiError(err.errors.map(x => x.message).join("\n"));
+            } else {
+              setApiError(err.message || "Payment verification failed.");
+            }
           }
         },
         modal: {
@@ -406,7 +415,11 @@ const Booking = () => {
       rzp.open();
     } catch (err: any) {
       setPaymentStatus("failed");
-      setApiError(err.message || "Payment initiation failed. Please try again.");
+      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
+        setApiError(err.errors.map(x => x.message).join("\n"));
+      } else {
+        setApiError(err.message || "Payment initiation failed. Please try again.");
+      }
     }
   };
 
@@ -573,7 +586,7 @@ const Booking = () => {
                   A specific room will be assigned by our team upon check-in.
                 </div>
                 {apiError && (
-                  <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{apiError}</p>
+                  <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">{apiError}</p>
                 )}
               </div>
             )}
@@ -645,7 +658,7 @@ const Booking = () => {
                       <p className="text-xs text-destructive">Payment failed or was cancelled. Please try again.</p>
                     )}
                     {apiError && (
-                      <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg font-medium">{apiError}</p>
+                      <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg font-medium whitespace-pre-wrap">{apiError}</p>
                     )}
                     <div className="flex gap-3">
                       <Button

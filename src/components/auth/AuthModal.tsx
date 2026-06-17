@@ -53,7 +53,7 @@ export const AuthModal = ({ open, onClose, defaultMode = "login" }: AuthModalPro
       onClose();
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        setError(err.errors && err.errors.length > 0 ? err.errors.map(x => x.message).join("\n") : err.message);
       } else {
         setError("Something went wrong. Please try again.");
       }
@@ -91,7 +91,7 @@ export const AuthModal = ({ open, onClose, defaultMode = "login" }: AuthModalPro
       }
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        setError(err.errors && err.errors.length > 0 ? err.errors.map(x => x.message).join("\n") : err.message);
       } else {
         setError("Something went wrong. Please try again.");
       }
@@ -177,7 +177,7 @@ export const AuthModal = ({ open, onClose, defaultMode = "login" }: AuthModalPro
             )}
 
             {error && (
-              <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+              <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">
                 {error}
               </p>
             )}
@@ -288,7 +288,7 @@ export const AuthModal = ({ open, onClose, defaultMode = "login" }: AuthModalPro
             </div>
 
             {error && (
-              <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+              <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">
                 {error}
               </p>
             )}
