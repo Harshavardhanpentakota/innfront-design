@@ -243,12 +243,12 @@ const Booking = () => {
 
   const [checkIn, setCheckIn] = useState<Date | undefined>(() => {
     if (checkInParam) return new Date(checkInParam + "T12:00:00");
-    if (persisted.checkIn) return new Date(persisted.checkIn);
+    if (persisted.checkIn) return new Date(persisted.checkIn.includes("T") ? persisted.checkIn : persisted.checkIn + "T12:00:00");
     return new Date();
   });
   const [checkOut, setCheckOut] = useState<Date | undefined>(() => {
     if (checkOutParam) return new Date(checkOutParam + "T12:00:00");
-    if (persisted.checkOut) return new Date(persisted.checkOut);
+    if (persisted.checkOut) return new Date(persisted.checkOut.includes("T") ? persisted.checkOut : persisted.checkOut + "T12:00:00");
     return undefined;
   });
   const [guests, setGuests] = useState<string>(persisted.guests ?? "2");
@@ -265,8 +265,8 @@ const Booking = () => {
   useEffect(() => {
     if (step >= 3) return; // don't keep stale data after booking is created
     const data: Record<string, string> = { guests };
-    if (checkIn) data.checkIn = checkIn.toISOString();
-    if (checkOut) data.checkOut = checkOut.toISOString();
+    if (checkIn) data.checkIn = format(checkIn, "yyyy-MM-dd");
+    if (checkOut) data.checkOut = format(checkOut, "yyyy-MM-dd");
     if (name) data.name = name;
     if (email) data.email = email;
     if (phone) data.phone = phone;
@@ -329,8 +329,8 @@ const Booking = () => {
     mutationFn: () =>
       bookingsApi.create({
         roomType: roomType,
-        checkInDate: checkIn!.toISOString(),
-        checkOutDate: checkOut!.toISOString(),
+        checkInDate: format(checkIn!, "yyyy-MM-dd"),
+        checkOutDate: format(checkOut!, "yyyy-MM-dd"),
         guests: parseInt(guests, 10),
         specialRequests,
       }),
